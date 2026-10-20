@@ -68,4 +68,12 @@ Java 17, Spring Boot, Spring MVC, Jakarta Validation, Spring Data JPA, Hibernate
 
 ## Autores
 
-Projeto acadêmico desenvolvido por Inocencio-Ferraz, Clebio-Luis e David-ksantos.
+## Autores
+
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/Inocencio-Ferraz"><img src="https://github.com/Inocencio-Ferraz.png" width="100px;" alt="Inocencio-Ferraz"/><br /><b>Inocencio-Ferraz</b></a></td>
+    <td align="center"><a href="https://github.com/clebio0901"><img src="https://github.com/clebio0901.png" width="100px;" alt="Clebio-Luis"/><br /><b>Clebio-Luis</b></a></td>
+    <td align="center"><a href="https://github.com/David-ksantos"><img src="https://github.com/David-ksantos.png" width="100px;" alt="David-ksantos"/><br /><b>David-ksantos</b></a></td>
+  </tr>
+</table>
