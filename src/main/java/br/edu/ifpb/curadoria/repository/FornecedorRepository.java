@@ -7,10 +7,22 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface FornecedorRepository extends JpaRepository<Fornecedor, Long> {
+
     Optional<Fornecedor> findByCnpj(String cnpj);
+
+    Optional<Fornecedor> findByCpf(String cpf);
+
     boolean existsByCnpj(String cnpj);
-    Page<Fornecedor> findByRazaoSocialContainingIgnoreCase(String razaoSocial, Pageable pageable);
+
+    boolean existsByCpf(String cpf);
+
+    Page<Fornecedor> findByRazaoSocialContainingIgnoreCase(
+            String razaoSocial,
+            Pageable pageable);
+
     Page<Fornecedor> findByAtivo(Boolean ativo, Pageable pageable);
+
     Page<Fornecedor> findByCnaeCodigo(Integer codigo, Pageable pageable);
+
     Page<Fornecedor> findByPorteEmpresaCodigo(Integer codigo, Pageable pageable);
 }

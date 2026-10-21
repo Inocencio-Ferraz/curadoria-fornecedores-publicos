@@ -1,7 +1,6 @@
 package br.edu.ifpb.curadoria.entity;
 
 import jakarta.persistence.*;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,7 +15,7 @@ public class Fornecedor {
     @Column(length = 14, unique = true)
     private String cnpj;
 
-    @Column(length = 14)
+    @Column(length = 14, unique = true)
     private String cpf;
 
     @Column(nullable = false, length = 250)
@@ -129,8 +128,7 @@ public class Fornecedor {
         return naturezaJuridica;
     }
 
-    public void setNaturezaJuridica(
-            NaturezaJuridica naturezaJuridica) {
+    public void setNaturezaJuridica(NaturezaJuridica naturezaJuridica) {
         this.naturezaJuridica = naturezaJuridica;
     }
 
