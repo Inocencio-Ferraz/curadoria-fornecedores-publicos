@@ -18,4 +18,17 @@ public final class DadosNormalizer {
         String normalized = texto(value);
         return normalized == null ? null : normalized.toUpperCase(Locale.ROOT);
     }
+
+    public static String municipio(String value) {
+        String normalized = texto(value);
+        if (normalized == null) return null;
+        String semAcento = Normalizer.normalize(normalized, Normalizer.Form.NFD).replaceAll("\\p{M}+", "");
+        return semAcento.toUpperCase(Locale.ROOT);
+    }
+
+    public static String cep(String value) {
+        if (value == null) return null;
+        String digitos = value.replaceAll("\\D", "");
+        return digitos.isEmpty() ? null : digitos;
+    }
 }

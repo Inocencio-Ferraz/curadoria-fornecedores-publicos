@@ -44,6 +44,7 @@ public class Fornecedor {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
+    @OrderBy("id ASC")
     private List<Endereco> enderecos = new ArrayList<>();
 
     protected Fornecedor() {

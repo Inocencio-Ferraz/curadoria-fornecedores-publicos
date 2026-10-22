@@ -10,4 +10,15 @@ class DadosNormalizerTest {
         assertNull(DadosNormalizer.texto("   "));
     }
     @Test void padronizaUf() { assertEquals("PB", DadosNormalizer.uf(" pb ")); }
+    @Test void normalizaMunicipioSemAcentoEmMaiusculas() {
+        assertEquals("JOAO PESSOA", DadosNormalizer.municipio("  João   Pessoa "));
+        assertEquals("SAO LUIS", DadosNormalizer.municipio("são luís"));
+        assertNull(DadosNormalizer.municipio("   "));
+        assertNull(DadosNormalizer.municipio(null));
+    }
+    @Test void normalizaCepSomenteDigitos() {
+        assertEquals("58000123", DadosNormalizer.cep("58000-123"));
+        assertNull(DadosNormalizer.cep("sem numeros"));
+        assertNull(DadosNormalizer.cep(null));
+    }
 }

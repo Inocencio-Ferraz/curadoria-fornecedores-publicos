@@ -4,9 +4,11 @@ import br.edu.ifpb.curadoria.entity.Fornecedor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.Optional;
 
-public interface FornecedorRepository extends JpaRepository<Fornecedor, Long> {
+public interface FornecedorRepository
+        extends JpaRepository<Fornecedor, Long>, JpaSpecificationExecutor<Fornecedor> {
 
     Optional<Fornecedor> findByCnpj(String cnpj);
 

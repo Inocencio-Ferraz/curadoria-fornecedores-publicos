@@ -4,43 +4,49 @@ import br.edu.ifpb.curadoria.dto.*;
 import br.edu.ifpb.curadoria.entity.*;
 import br.edu.ifpb.curadoria.repository.*;
 import br.edu.ifpb.curadoria.transform.DadosNormalizer;
-import org.springframework.data.domain.*;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 @Service
 @Transactional
 public class FornecedorService {
 
+    static final String FONTE_MANUAL = "MANUAL";
+
     private final FornecedorRepository fornecedores;
     private final CnaeRepository cnaes;
     private final NaturezaJuridicaRepository naturezas;
     private final PorteEmpresaRepository portes;
+    private final MunicipioRepository municipios;
 
     public FornecedorService(
             FornecedorRepository fornecedores,
             CnaeRepository cnaes,
             NaturezaJuridicaRepository naturezas,
-            PorteEmpresaRepository portes) {
+            PorteEmpresaRepository portes,
+            MunicipioRepository municipios) {
         this.fornecedores = fornecedores;
         this.cnaes = cnaes;
         this.naturezas = naturezas;
         this.portes = portes;
+        this.municipios = municipios;
     }
 
-    @Transactional(readOnly = true)
+
     public Page<FornecedorResponse> listar(
             String busca,
             Boolean ativo,
             Pageable pageable) {
-        Page<Fornecedor> page = busca != null && !busca.isBlank()
-                ? fornecedores.findByRazaoSocialContainingIgnoreCase(
-                DadosNormalizer.texto(busca), pageable)
-                : ativo == null
-                ? fornecedores.findAll(pageable)
-                : fornecedores.findByAtivo(ativo, pageable);
-
-        return page.map(this::response);
+        return fornecedores.findAll(filtro(busca, ativo), pageable).map(this::response);
     }
 
     @Transactional(readOnly = true)
@@ -72,15 +78,11 @@ public class FornecedorService {
     }
 
     public FornecedorResponse criar(FornecedorRequest request) {
-        String cnpj = request.cnpj() == null
-                || request.cnpj().isBlank()
-                ? null
-                : DadosNormalizer.documento(request.cnpj());
+        String cnpj = documentoOuNulo(request.cnpj());
+        String cpf = documentoOuNulo(request.cpf());
 
-        String cpf = request.cpf() == null
-                || request.cpf().isBlank()
-                ? null
-                : DadosNormalizer.documento(request.cpf());
+        validarIdentificacao(cnpj, cpf);
+        String razaoSocial = razaoSocialObrigatoria(request.razaoSocial());
 
         if (cnpj != null && fornecedores.existsByCnpj(cnpj)) {
             throw new ConflitoException(
@@ -95,15 +97,17 @@ public class FornecedorService {
         Fornecedor fornecedor = new Fornecedor(
                 cnpj,
                 cpf,
-                DadosNormalizer.texto(request.razaoSocial()),
+                razaoSocial,
                 request.ativo() == null || request.ativo(),
                 request.habilitadoLicitar() != null
                         && request.habilitadoLicitar());
 
         aplicarReferencias(fornecedor, request);
+        substituirEnderecos(fornecedor, request.enderecos());
 
         return response(fornecedores.save(fornecedor));
     }
+
 
     public FornecedorResponse atualizar(
             Long id,
@@ -113,19 +117,15 @@ public class FornecedorService {
                         new RecursoNaoEncontradoException(
                                 "Fornecedor não encontrado: " + id));
 
-        String cnpj = request.cnpj() == null
-                || request.cnpj().isBlank()
-                ? null
-                : DadosNormalizer.documento(request.cnpj());
+        String cnpj = documentoOuNulo(request.cnpj());
+        String cpf = documentoOuNulo(request.cpf());
 
-        String cpf = request.cpf() == null
-                || request.cpf().isBlank()
-                ? null
-                : DadosNormalizer.documento(request.cpf());
+        validarIdentificacao(cnpj, cpf);
+        String razaoSocial = razaoSocialObrigatoria(request.razaoSocial());
 
         if (cnpj != null) {
             fornecedores.findByCnpj(cnpj)
-                    .filter(outro -> !java.util.Objects.equals(outro.getId(), id))
+                    .filter(outro -> !Objects.equals(outro.getId(), id))
                     .ifPresent(outro -> {
                         throw new ConflitoException(
                                 "Já existe fornecedor com este CNPJ");
@@ -134,7 +134,7 @@ public class FornecedorService {
 
         if (cpf != null) {
             fornecedores.findByCpf(cpf)
-                    .filter(outro -> !outro.getId().equals(id))
+                    .filter(outro -> !Objects.equals(outro.getId(), id))
                     .ifPresent(outro -> {
                         throw new ConflitoException(
                                 "Já existe fornecedor com este CPF");
@@ -143,8 +143,7 @@ public class FornecedorService {
 
         fornecedor.setCnpj(cnpj);
         fornecedor.setCpf(cpf);
-        fornecedor.setRazaoSocial(
-                DadosNormalizer.texto(request.razaoSocial()));
+        fornecedor.setRazaoSocial(razaoSocial);
         fornecedor.setAtivo(
                 request.ativo() == null || request.ativo());
         fornecedor.setHabilitadoLicitar(
@@ -152,6 +151,10 @@ public class FornecedorService {
                         && request.habilitadoLicitar());
 
         aplicarReferencias(fornecedor, request);
+        substituirEnderecos(fornecedor, request.enderecos());
+
+
+        fornecedores.flush();
 
         return response(fornecedor);
     }
@@ -165,6 +168,63 @@ public class FornecedorService {
         fornecedores.deleteById(id);
     }
 
+
+
+    private static Specification<Fornecedor> filtro(String busca, Boolean ativo) {
+        String termo = DadosNormalizer.texto(busca);
+
+        return (root, query, cb) -> {
+            List<Predicate> predicados = new ArrayList<>();
+
+            if (termo != null) {
+                String padrao = "%" + escaparLike(termo.toLowerCase(Locale.ROOT)) + "%";
+                predicados.add(cb.like(cb.lower(root.<String>get("razaoSocial")), padrao, '\\'));
+            }
+
+            if (ativo != null) {
+                predicados.add(cb.equal(root.get("ativo"), ativo));
+            }
+
+            return cb.and(predicados.toArray(new Predicate[0]));
+        };
+    }
+
+
+    static String escaparLike(String texto) {
+        return texto
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+    }
+
+
+
+    private static String documentoOuNulo(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return null;
+        }
+        String documento = DadosNormalizer.documento(valor);
+        return documento.isEmpty() ? null : documento;
+    }
+
+
+    private static void validarIdentificacao(String cnpj, String cpf) {
+        if ((cnpj == null) == (cpf == null)) {
+            throw new ParametroInvalidoException(
+                    "Informe apenas um documento: CPF ou CNPJ");
+        }
+    }
+
+    private static String razaoSocialObrigatoria(String razaoSocial) {
+        String normalizada = DadosNormalizer.texto(razaoSocial);
+        if (normalizada == null) {
+            throw new ParametroInvalidoException("Razão social é obrigatória");
+        }
+        return normalizada;
+    }
+
+
+
     private void aplicarReferencias(
             Fornecedor fornecedor,
             FornecedorRequest request) {
@@ -173,7 +233,7 @@ public class FornecedorService {
                         ? null
                         : cnaes.findById(request.cnaeCodigo())
                         .orElseThrow(() ->
-                                new RecursoNaoEncontradoException(
+                                new ReferenciaInvalidaException(
                                         "CNAE não encontrado: "
                                                 + request.cnaeCodigo())));
 
@@ -183,7 +243,7 @@ public class FornecedorService {
                         : naturezas.findById(
                                 request.naturezaJuridicaCodigo())
                         .orElseThrow(() ->
-                                new RecursoNaoEncontradoException(
+                                new ReferenciaInvalidaException(
                                         "Natureza jurídica não encontrada: "
                                                 + request.naturezaJuridicaCodigo())));
 
@@ -192,9 +252,69 @@ public class FornecedorService {
                         ? null
                         : portes.findById(request.porteEmpresaCodigo())
                         .orElseThrow(() ->
-                                new RecursoNaoEncontradoException(
+                                new ReferenciaInvalidaException(
                                         "Porte de empresa não encontrado: "
                                                 + request.porteEmpresaCodigo())));
+    }
+
+
+    private void substituirEnderecos(
+            Fornecedor fornecedor,
+            List<EnderecoRequest> requests) {
+        fornecedor.getEnderecos().clear();
+
+        if (requests == null) {
+            return;
+        }
+
+        for (EnderecoRequest request : requests) {
+            Endereco endereco = new Endereco(fornecedor);
+            endereco.setTipoLogradouro(DadosNormalizer.texto(request.tipoLogradouro()));
+            endereco.setLogradouro(DadosNormalizer.texto(request.logradouro()));
+            endereco.setNumero(DadosNormalizer.texto(request.numero()));
+            endereco.setComplemento(DadosNormalizer.texto(request.complemento()));
+            endereco.setBairro(DadosNormalizer.texto(request.bairro()));
+            endereco.setCep(DadosNormalizer.cep(request.cep()));
+            endereco.setFonteDados(FONTE_MANUAL);
+            endereco.setMunicipio(resolverMunicipio(request.municipio(), request.uf()));
+
+            fornecedor.adicionarEndereco(endereco);
+        }
+    }
+
+
+    private Municipio resolverMunicipio(String nome, String uf) {
+        String nomeNormalizado = DadosNormalizer.municipio(nome);
+        String ufNormalizada = DadosNormalizer.uf(uf);
+
+        if (nomeNormalizado == null && ufNormalizada == null) {
+            return null;
+        }
+
+        if (nomeNormalizado == null || ufNormalizada == null) {
+            throw new ParametroInvalidoException("Informe município e UF juntos");
+        }
+
+        return municipios.findByNomeAndUf(nomeNormalizado, ufNormalizada)
+                .orElseGet(() -> municipios.save(
+                        new Municipio(nomeNormalizado, ufNormalizada)));
+    }
+
+
+    private EnderecoResponse enderecoResponse(Endereco endereco) {
+        Municipio municipio = endereco.getMunicipio();
+
+        return new EnderecoResponse(
+                endereco.getId(),
+                endereco.getTipoLogradouro(),
+                endereco.getLogradouro(),
+                endereco.getNumero(),
+                endereco.getComplemento(),
+                endereco.getBairro(),
+                endereco.getCep(),
+                municipio == null ? null : municipio.getNome(),
+                municipio == null ? null : municipio.getUf(),
+                endereco.getFonteDados());
     }
 
     private FornecedorResponse response(Fornecedor fornecedor) {
@@ -216,6 +336,9 @@ public class FornecedorService {
                 fornecedor.getPorteEmpresa() == null
                         ? null : fornecedor.getPorteEmpresa().getCodigo(),
                 fornecedor.getPorteEmpresa() == null
-                        ? null : fornecedor.getPorteEmpresa().getDescricao());
+                        ? null : fornecedor.getPorteEmpresa().getDescricao(),
+                fornecedor.getEnderecos().stream()
+                        .map(this::enderecoResponse)
+                        .toList());
     }
 }

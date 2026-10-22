@@ -17,6 +17,7 @@ class FornecedorRequestTest {
                 false,
                 null,
                 null,
+                null,
                 null
         );
 
@@ -31,6 +32,7 @@ class FornecedorRequestTest {
                 "Fornecedor Teste",
                 true,
                 false,
+                null,
                 null,
                 null,
                 null
@@ -49,6 +51,7 @@ class FornecedorRequestTest {
                 false,
                 null,
                 null,
+                null,
                 null
         );
 
@@ -65,6 +68,7 @@ class FornecedorRequestTest {
                 false,
                 null,
                 null,
+                null,
                 null
         );
 
@@ -79,6 +83,7 @@ class FornecedorRequestTest {
                 "Fornecedor Teste",
                 true,
                 false,
+                null,
                 null,
                 null,
                 null
