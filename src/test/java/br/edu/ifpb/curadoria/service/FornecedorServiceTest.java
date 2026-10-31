@@ -42,7 +42,14 @@ class FornecedorServiceTest {
     @Mock
     private MunicipioRepository municipios;
 
+    @Mock
+    private ComprasGovService comprasGovService;
+
+    @Mock
+    private BrasilApiService brasilApiService;
+
     private FornecedorService service;
+
 
     @BeforeEach
     void configurar() {
@@ -52,6 +59,8 @@ class FornecedorServiceTest {
                 naturezas,
                 portes,
                 municipios,
+                comprasGovService,
+                brasilApiService
         );
     }
 
